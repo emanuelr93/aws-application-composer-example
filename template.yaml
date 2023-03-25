@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+  OrderTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+  OrderProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+        - AttributeName: productId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+  ProductQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ProductQueue
+  OrderQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: OrderQueue
+  OrderProductQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: OrderProductQueue
+  ProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: product/
+      Handler: index.handler
+      Runtime: nodejs14.x
+      Events:
+        ProductQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ProductQueue.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ProductTable
+          TABLE_ARN: !GetAtt ProductTable.Arn
+  OrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: order/
+      Handler: index.handler
+      Runtime: nodejs14.x
+      Events:
+        OrderQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt OrderQueue.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref OrderTable
+          TABLE_ARN: !GetAtt OrderTable.Arn
+  OrderProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: orderProduct/
+      Handler: index.handler
+      Runtime: nodejs14.x
+      Events:
+        OrderProductQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt OrderProductQueue.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderProductTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref OrderProductTable
+          TABLE_ARN: !GetAtt OrderProductTable.Arn
